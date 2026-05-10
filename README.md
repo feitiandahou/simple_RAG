@@ -12,7 +12,9 @@
 
 uv sync
 
-uv run streamlit run app.py
+uv run python -m streamlit run app_file_upload.py --server.port 8502
+
+uv run python -m streamlit run app_simple_example.py --server.port 8503
 ```
 
 **环境变量**

@@ -1,13 +1,31 @@
+import time
+
 import streamlit as st
 
-st.title("My File Upload Example")
+st.title("知识库更新服务")
 
-st.write("Upload a file to see its contents:")
+uploader_file = st.file_uploader(
+    "请上传txt文件",
+    type=['txt'],
+    accept_multiple_files=False,# False表示仅接受一个文件的上传
+)
 
-if "count" not in st.session_state:
-    st.session_state.count = 0
+if "service" not in st.session_state:
+    st.session_state["service"] = KnowledgeBaseService()
 
-if st.button("click me +1"):
-    st.session_state.count += 1
+if uploader_file is not None:
+    #提取文件的信息
+    file_name = uploader_file.name
+    file_type = uploader_file.type
+    file_size = uploader_file.size
 
-st.write(f"Button clicked {st.session_state.count} times.")
+    st.subheader(f"文件名： {file_name}")
+    st.subheader(f"文件类型： {file_type}")
+    st.subheader(f"文件大小： {file_size / 1024:.2f} KB")
+
+    text = uploader_file.getvalue().decode("utf-8")
+
+    with st.spinner("载入知识库中..."):
+        time.sleep(1)
+        result = st.session_state["service"].upload_by_str(text, file_name)
+        st.write(result)
