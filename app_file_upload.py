@@ -2,6 +2,8 @@ import time
 
 import streamlit as st
 
+from knowledge_base import KnowledgeBaseService
+
 st.title("知识库更新服务")
 
 uploader_file = st.file_uploader(

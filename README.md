@@ -17,6 +17,8 @@ uv run python -m streamlit run app_file_upload.py --server.port 8502
 uv run python -m streamlit run app_simple_example.py --server.port 8503
 ```
 
+test:
+uv run python knowledge_base.py
 **环境变量**
 - `OPENAI_API_KEY`（或你使用的 LLM 服务密钥）
 - 可选：`VECTOR_STORE_PATH`（向量索引持久化路径）
@@ -53,5 +55,5 @@ python main.py --query "你的问题"
 欢迎通过 Issues 和 Pull Requests 贡献改进：文档处理、向量库替换（FAISS、Weaviate、Chroma 等）、LLM 后端切换等。
 
 **许可证**
-MIT（或根据需要替换）。
+MIT。
 

@@ -39,7 +39,18 @@ if prompt := st.chat_input("请输入你的问题..."):
         for chunk in response:
             if chunk.status_code == 200:
                 content = chunk.output.choices[0].message.content
-                full_response += content
+
+                if isinstance(content, str):
+                    content_text = content
+                elif isinstance(content, list):
+                    content_text = "".join(
+                        item.get("text", str(item)) if isinstance(item, dict) else str(item)
+                        for item in content
+                    )
+                else:
+                    content_text = str(content)
+
+                full_response += content_text
                 placeholder.markdown(full_response + "▌") #显示打字机效果
             else:
                 st.error(f"请求失败: {chunk.message}")
