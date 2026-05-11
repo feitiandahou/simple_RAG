@@ -83,5 +83,6 @@ wheels/
 # Virtual environments
 .venv
 
-md5.txt
-chroma_db/
+# runtime data
+data/*
+!data/.gitkeep
