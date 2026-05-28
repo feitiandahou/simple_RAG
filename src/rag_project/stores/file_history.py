@@ -1,5 +1,7 @@
 import json
 from collections.abc import Sequence
+import re
+from pathlib import Path
 
 from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.messages import BaseMessage, message_to_dict, messages_from_dict
@@ -8,7 +10,29 @@ from rag_project.config import settings
 
 
 def get_history(session_id: str) -> "FileChatMessageHistory":
-    return FileChatMessageHistory(session_id=session_id, storage_path=settings.chat_history_dir)
+    return FileChatMessageHistory(session_id=_normalize_session_id(session_id), storage_path=settings.chat_history_dir)
+
+
+def _normalize_session_id(session_id: str) -> str:
+    candidate = (session_id or "").strip()
+    if not candidate:
+        return settings.default_session_id
+    return re.sub(r"[^a-zA-Z0-9_-]", "_", candidate)
+
+
+def list_session_ids() -> list[str]:
+    settings.ensure_runtime_directories()
+    sessions: list[str] = []
+    for item in settings.chat_history_dir.iterdir():
+        if item.is_file():
+            sessions.append(item.name)
+    return sorted(sessions)
+
+
+def clear_session_history(session_id: str) -> Path:
+    history = get_history(session_id)
+    history.clear()
+    return history.file_path
 
 
 class FileChatMessageHistory(BaseChatMessageHistory):

@@ -1,184 +1,235 @@
-# 简易 RAG（Retrieval-Augmented Generation）项目
+# RAG Project
 
-这是一个用于学习 RAG 基本流程的示例项目，已经按完整项目的常见规范重组为“核心包 + 应用入口 + 脚本入口 + 运行时数据目录”的结构，便于继续扩展。
+一个可运行、可学习、可扩展的 RAG（Retrieval-Augmented Generation）项目示例。
 
-当前项目包含 3 条主线能力：
+本项目提供从知识入库、向量检索到问答生成的完整链路，支持命令行、API、Web 三种使用方式，适合用于：
 
-- 文本写入知识库
-- 从向量库检索相关内容
+- RAG 技术学习
+- 企业内部技术演示
+- 小规模原型验证
+
+## 功能概览
+
+- 文本知识入库（单条上传、目录批量导入）
+- 向量检索（支持结构化 JSON 输出）
 - 带历史对话的 RAG 问答
+- 多租户与权限上下文（tenant_id / permission_tag）
+- 会话管理（列出会话、清空会话）
+- 运维命令（健康检查、系统信息、知识库统计、重置与清理）
+- FastAPI 服务接口
+- Streamlit 演示页面
+- 最小自动化测试集
+- Docker/Compose 最小部署支持
 
-当前项目基于以下组件：
+## 技术栈
 
 - 向量库：Chroma
-- 嵌入模型：DashScope `text-embedding-v4`
-- 对话模型：Tongyi `qwen-turbo`
-- Web 界面：Streamlit
+- 嵌入模型：DashScope text-embedding-v4
+- 对话模型：Tongyi qwen-turbo
+- 后端 API：FastAPI
+- Web 演示：Streamlit
+- 依赖管理：uv
 
-## 运行环境
+## 快速开始
 
-- Python `>= 3.12`
-- 依赖管理：`uv`
-- 需要有效的 `DASHSCOPE_API_KEY`
+### 1. 环境要求
 
-安装依赖：
+- Python >= 3.12
+- uv
+- 可用的 DASHSCOPE_API_KEY
+
+### 2. 安装依赖
 
 ```powershell
 uv sync
 ```
 
-## 环境变量
+### 3. 配置环境变量
 
-关键环境变量：
-
-- `DASHSCOPE_API_KEY`：DashScope 的模型与嵌入调用密钥
-
-PowerShell 示例：
+PowerShell:
 
 ```powershell
 $env:DASHSCOPE_API_KEY = "your-dashscope-key"
 ```
 
-也可以复制 `.env.example` 为 `.env` 后填写：
+或复制 `.env.example` 到 `.env` 并填写。
 
-```env
-DASHSCOPE_API_KEY="your-dashscope-key"
-```
+## 常用运行方式
 
-## 项目结构
+### A. 命令行方式
 
-```text
-rag-project/
-|- apps/
-|  |- file_upload.py
-|  |- qa.py
-|- data/
-|  |- chat_history/
-|  |- chroma_db/
-|  |- md5.txt
-|- scripts/
-|  |- seed_knowledge_base.py
-|  |- check_retrieval.py
-|  |- run_rag_demo.py
-|- src/
-|  |- rag_project/
-|     |- apps/
-|     |- services/
-|     |- stores/
-|     |- cli.py
-|     |- config.py
-|- .env.example
-|- pyproject.toml
-|- README.md
-```
-
-目录职责：
-
-- `src/rag_project/`：项目核心代码
-- `src/rag_project/services/`：知识库、向量检索、RAG 业务逻辑
-- `src/rag_project/stores/`：本地历史消息存储
-- `apps/`：Streamlit 启动入口
-- `scripts/`：命令行演示脚本入口
-- `data/`：本地运行时数据目录，不提交到仓库
-
-## 推荐使用顺序
-
-1. 准备环境变量和依赖
-2. 写入测试知识到向量库
-3. 验证向量检索
-4. 运行 RAG 脚本或 Web 页面
-
-## 命令行验证
-
-### 1. 写入测试知识
+查看系统状态：
 
 ```powershell
-uv run python scripts/seed_knowledge_base.py
+uv run python -m rag_project system-info
+uv run python -m rag_project health-check
 ```
 
-可选参数：
+写入示例知识：
 
 ```powershell
-uv run python scripts/seed_knowledge_base.py --text "这是新的测试文本" --filename custom.txt
+uv run python -m rag_project upload-demo --text "这是一个测试文本" --filename test.txt
 ```
 
-### 2. 验证向量检索
+批量导入目录：
 
 ```powershell
-uv run python scripts/check_retrieval.py "什么是RAG？"
+uv run python -m rag_project ingest-dir ./docs --pattern *.txt --operator ops_team --tenant-id tenant_a --owner hr_lead --permission-tag internal --version v1
 ```
 
-### 3. 验证完整 RAG 链
+执行检索：
 
 ```powershell
-uv run python scripts/run_rag_demo.py "什么是RAG？"
+uv run python -m rag_project retrieve "什么是RAG？" --json --tenant-id tenant_a --permission-tag internal
 ```
 
-这个脚本会执行：
+执行问答：
 
-- 问题向量检索
-- 组装提示词
-- 调用 Tongyi 模型生成回答
-- 记录本轮对话历史
+```powershell
+uv run python -m rag_project ask "什么是RAG？" --session-id user_001 --tenant-id tenant_a --permission-tag internal
+```
 
-## Web 页面启动方式
+会话管理：
 
-### 1. 知识库上传页面
+```powershell
+uv run python -m rag_project list-sessions
+uv run python -m rag_project clear-history --session-id user_001
+```
+
+知识库运维：
+
+```powershell
+uv run python -m rag_project kb-stats
+uv run python -m rag_project kb-clean-system
+uv run python -m rag_project kb-reset --force
+```
+
+### B. API 方式
+
+启动 API 服务：
+
+```powershell
+uv run python -m rag_project serve-api --host 0.0.0.0 --port 8000
+```
+
+核心接口：
+
+- GET /health
+- GET /system-info
+- POST /kb/upload
+- POST /kb/ingest-dir
+- GET /kb/stats
+- POST /retrieve
+- POST /ask
+- GET /sessions
+- DELETE /sessions/{session_id}
+
+### C. Web 页面方式
+
+知识库上传页面：
 
 ```powershell
 uv run python -m streamlit run apps/file_upload.py --server.port 8502
 ```
 
-### 2. RAG 问答页面
+RAG 问答页面：
 
 ```powershell
 uv run python -m streamlit run apps/qa.py --server.port 8503
 ```
 
-说明：在当前 Windows 环境中，直接使用 `uv run streamlit run ...` 可能会出现 `uv trampoline failed to canonicalize script path`。使用 `uv run python -m streamlit run ...` 更稳定。
+## 一键演示流程
 
-## 当前配置说明
-
-默认配置位于 `src/rag_project/config.py`：
-
-- 运行时数据目录：`./data`
-- 向量库目录：`./data/chroma_db`
-- 历史消息目录：`./data/chat_history`
-- 去重文件：`./data/md5.txt`
-- 集合名：`rag`
-- 嵌入模型：`text-embedding-v4`
-- 聊天模型：`qwen-turbo`
-- 默认会话 ID：`user_001`
-
-如果你清空 `data/chroma_db/` 或 `data/md5.txt`，会影响检索结果和去重逻辑。
-
-## 一个最小可用流程
+项目提供企业演示脚本：
 
 ```powershell
-uv sync
-uv run python scripts/seed_knowledge_base.py
-uv run python scripts/check_retrieval.py
-uv run python scripts/run_rag_demo.py
-uv run python -m streamlit run apps/qa.py --server.port 8504
+uv run python scripts/run_enterprise_demo.py --knowledge-dir docs --tenant-id tenant_demo --permission-tag internal
 ```
 
-## 后续可扩展方向
+该脚本会自动执行：
 
-- 支持上传更多文本格式，而不只限于 `.txt`
-- 为检索器增加 `k` 值、阈值等可配置项
-- 将对话历史和知识库路径改为按用户隔离
-- 用 LangGraph 替代 `RunnableWithMessageHistory`
+- system-info
+- health-check
+- ingest-dir
+- kb-stats
+- retrieve --json
 
-## 开发提示
+## 环境变量说明
 
-- 将密钥放在 `.env` 中，不要提交到仓库。
-- 如需重建知识库，可清理 `data/chroma_db/` 后重新执行写入脚本。
-- 如需清空历史对话，可删除 `data/chat_history/` 下对应会话文件。
-- 新增业务代码优先放在 `src/rag_project/` 下，不要再回到根目录平铺脚本。
+关键变量：
 
-## 常见运行问题
+- DASHSCOPE_API_KEY：DashScope 访问密钥
+- RAG_ENV：运行环境（dev/test/prod）
+- RAG_LOG_LEVEL：日志级别（INFO/DEBUG 等）
+- RAG_DATA_DIR：运行时数据目录（默认 data）
+- RAG_COLLECTION_NAME：向量集合名（默认 rag）
+- RAG_TOP_K：检索返回条数（默认 4）
+- RAG_EMBEDDING_MODEL：嵌入模型名
+- RAG_CHAT_MODEL：对话模型名
+- RAG_PROMPT_VERSION：提示词版本
+- RAG_DEFAULT_SESSION_ID：默认会话 ID
 
-- 如果命令行或页面提示 `DashScope 账户当前处于欠费或不可用状态`，说明当前阿里云百炼账户余额、账单或服务状态异常，不是本地代码结构问题。
-- 如果提示 `请先设置 DASHSCOPE_API_KEY 环境变量`，说明本地 `.env` 或当前终端环境变量没有正确配置。
-- 这两个问题修复后，无需改代码，直接重新执行 `scripts/` 或 `apps/` 下的入口即可。
+## 项目结构
+
+```text
+rag-project/
+|- apps/                 # Streamlit 启动入口
+|- data/                 # 本地运行时数据
+|- docs/                 # 项目文档
+|- scripts/              # 演示脚本
+|- src/rag_project/
+|  |- api/               # FastAPI 接口层
+|  |- apps/              # 前端应用逻辑
+|  |- services/          # 业务服务层
+|  |- stores/            # 存储抽象层
+|  |- bootstrap.py       # 统一装配与初始化
+|  |- cli.py             # 命令行入口
+|  |- config.py          # 配置中心
+|- tests/                # 自动化测试
+|- Dockerfile
+|- docker-compose.yml
+|- pyproject.toml
+|- README.md
+```
+
+## 测试
+
+安装测试依赖并执行：
+
+```powershell
+uv sync --extra dev
+uv run pytest -q
+```
+
+当前测试覆盖：
+
+- 多租户去重逻辑
+- 检索过滤构造
+- API 核心接口
+
+## 部署
+
+### Docker Compose 一键部署
+
+```powershell
+docker compose up -d --build
+```
+
+详细步骤见 docs/deploy_api.md。
+
+## 学习文档
+
+若你是第一次接触 RAG，建议先阅读：
+
+- docs/rag_learning_guide.md
+
+## 常见问题
+
+- 若提示 DASHSCOPE_API_KEY 未配置，请检查环境变量或 .env。
+- 若提示 DashScope 账户不可用，请检查账户余额和服务状态。
+- 若检索结果异常，可先执行 kb-stats 与 kb-clean-system 进行排查。
+
+## 说明
+
+本项目定位为学习与演示用途，默认以可理解、可运行、可扩展为目标。
 

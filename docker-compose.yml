@@ -1,0 +1,21 @@
+services:
+  rag-api:
+    build: .
+    image: rag-project-api:latest
+    container_name: rag-project-api
+    ports:
+      - "8000:8000"
+    environment:
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY}
+      RAG_ENV: ${RAG_ENV:-prod}
+      RAG_LOG_LEVEL: ${RAG_LOG_LEVEL:-INFO}
+      RAG_DATA_DIR: ${RAG_DATA_DIR:-data}
+      RAG_COLLECTION_NAME: ${RAG_COLLECTION_NAME:-rag}
+      RAG_TOP_K: ${RAG_TOP_K:-4}
+      RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-text-embedding-v4}
+      RAG_CHAT_MODEL: ${RAG_CHAT_MODEL:-qwen-turbo}
+      RAG_PROMPT_VERSION: ${RAG_PROMPT_VERSION:-v2_enterprise_demo}
+      RAG_DEFAULT_SESSION_ID: ${RAG_DEFAULT_SESSION_ID:-user_001}
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
