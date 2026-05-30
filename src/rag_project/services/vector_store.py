@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+import re
 from typing import Any
 
 from langchain_chroma import Chroma
@@ -12,6 +13,23 @@ from rag_project.observability import get_logger
 logger = get_logger(__name__)
 
 
+def _tokenize_for_rerank(text: str) -> set[str]:
+    # Keep both CJK single-char tokens and ASCII words to support mixed-language queries.
+    return {token for token in re.findall(r"[\u4e00-\u9fff]|[A-Za-z0-9_]+", text.lower()) if token}
+
+
+def _rerank_score(query: str, doc: Document) -> float:
+    doc_text = doc.page_content or ""
+    query_tokens = _tokenize_for_rerank(query)
+    doc_tokens = _tokenize_for_rerank(doc_text)
+    if not query_tokens:
+        return 0.0
+
+    overlap = len(query_tokens.intersection(doc_tokens)) / len(query_tokens)
+    contains_bonus = 0.2 if query and query in doc_text else 0.0
+    return overlap + contains_bonus
+
+
 class VectorStoreService:
     def __init__(self, embedding) -> None:
         self.embedding = embedding
@@ -21,8 +39,13 @@ class VectorStoreService:
             persist_directory=str(settings.persist_directory),
         )
 
-    def get_retriever(self, tenant_id: str | None = None, permission_tag: str | None = None):
-        search_kwargs: dict[str, Any] = {"k": settings.top_k}
+    def get_retriever(
+        self,
+        tenant_id: str | None = None,
+        permission_tag: str | None = None,
+        k: int | None = None,
+    ):
+        search_kwargs: dict[str, Any] = {"k": k or settings.top_k}
         filter_parts: list[dict[str, str]] = []
         if tenant_id:
             filter_parts.append({"tenant_id": tenant_id})
@@ -41,7 +64,17 @@ class VectorStoreService:
         permission_tag: str | None = None,
     ) -> Sequence[Document]:
         try:
-            docs = self.get_retriever(tenant_id=tenant_id, permission_tag=permission_tag).invoke(query)
+            candidate_k = max(settings.top_k, settings.rerank_candidate_k) if settings.rerank_enabled else settings.top_k
+            docs = self.get_retriever(
+                tenant_id=tenant_id,
+                permission_tag=permission_tag,
+                k=candidate_k,
+            ).invoke(query)
+
+            if settings.rerank_enabled:
+                ranked_docs = sorted(docs, key=lambda doc: _rerank_score(query, doc), reverse=True)
+                docs = ranked_docs[: settings.top_k]
+
             logger.info(
                 "vector_retrieval_completed",
                 extra={
@@ -49,6 +82,8 @@ class VectorStoreService:
                     "count": len(docs),
                     "tenant_id": tenant_id or "",
                     "permission_tag": permission_tag or "",
+                    "rerank_enabled": int(settings.rerank_enabled),
+                    "candidate_k": candidate_k,
                 },
             )
             return docs

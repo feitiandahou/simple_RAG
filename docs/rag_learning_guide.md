@@ -187,7 +187,19 @@ ingest_directory 支持目录级导入，带统计输出：
 - tenant_id
 - permission_tag
 
-3. 运维能力
+3. 可选重排序（rerank）
+
+检索支持两阶段流程：
+
+- 第一阶段：按向量相似度召回候选（candidate_k）
+- 第二阶段：按 query-doc 相关性重排后截断到 top_k
+
+默认关闭，可通过环境变量启用：
+
+- RAG_RERANK_ENABLED=true
+- RAG_RERANK_CANDIDATE_K=12
+
+4. 运维能力
 
 - stats：查看集合数量
 - delete_by_source：按 source 删除脏数据
@@ -219,7 +231,13 @@ ingest_directory 支持目录级导入，带统计输出：
 
 通过 RunnableWithMessageHistory 接入历史，历史来源是 stores/file_history.py。
 
-4. 观测指标
+并且在注入提示词前只保留最近 6 轮（最多 12 条消息，human+ai），避免会话越聊越长导致提示词膨胀。
+
+4. 检索上下文去重
+
+问答链会在拼接 context 前先对检索结果去重（基于 doc_id/source/chunk_index/内容），减少重复片段占用 token。
+
+5. 观测指标
 
 ask 会记录耗时 latency_ms、prompt_version 等信息。
 
@@ -480,3 +498,31 @@ kb-stats、kb-clean-system、kb-reset 是你排障的第一工具。
 - 上下文如何拼 prompt
 - 模型如何返回答案
 - 为什么答案能追溯到来源
+
+---
+
+## 20. 如何查看最终喂给 LLM 的 Prompt（默认关闭）
+
+项目内置了 Prompt 调试开关，默认关闭，不会打印敏感上下文。
+
+开启方式（PowerShell）：
+
+```powershell
+$env:RAG_DEBUG_PROMPT = "true"
+```
+
+然后执行任意问答命令，例如：
+
+```powershell
+uv run python -m rag_project ask "什么是RAG？" --session-id user_001
+```
+
+日志会输出 `rag_prompt_rendered`，其中包含最终渲染后的 Prompt（含 input/context/history）。
+
+关闭方式：
+
+```powershell
+Remove-Item Env:RAG_DEBUG_PROMPT
+```
+
+或设置为 `false`。

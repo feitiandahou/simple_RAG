@@ -17,6 +17,12 @@ from rag_project.stores.file_history import get_history
 logger = get_logger(__name__)
 
 
+def _is_truthy(value: str | None) -> bool:
+    if value is None:
+        return False
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 class RagService:
     def __init__(self, vector_service: VectorStoreService, chat_model) -> None:
         ensure_dashscope_api_key(os.environ.get("DASHSCOPE_API_KEY"))
@@ -27,11 +33,30 @@ class RagService:
         self.chain = self._build_chain()
 
     def _build_chain(self):
+        prompt_debug_enabled = _is_truthy(os.environ.get("RAG_DEBUG_PROMPT"))
+        max_history_messages = 12  # Keep last 6 rounds (human+ai)
+
+        def dedupe_documents(docs: list[Document]) -> list[Document]:
+            seen: set[str] = set()
+            unique_docs: list[Document] = []
+            for doc in docs:
+                metadata = doc.metadata or {}
+                source = metadata.get("source", "")
+                chunk_index = metadata.get("chunk_index", "")
+                doc_id = metadata.get("doc_id", "")
+                key = f"{doc_id}|{source}|{chunk_index}|{doc.page_content}"
+                if key in seen:
+                    continue
+                seen.add(key)
+                unique_docs.append(doc)
+            return unique_docs
+
         def format_document(docs: list[Document]) -> str:
             if not docs:
                 return "无相关参考资料。"
+            deduped_docs = dedupe_documents(docs)
             return "\n\n".join(
-                f"文档片段：{doc.page_content}\n文档元数据: {doc.metadata}" for doc in docs
+                f"文档片段：{doc.page_content}\n文档元数据: {doc.metadata}" for doc in deduped_docs
             )
 
         def retrieve_context(value: dict) -> str:
@@ -43,11 +68,32 @@ class RagService:
             return format_document(list(docs))
 
         def format_for_prompt_template(value: dict) -> dict:
+            history_messages = value["input"]["history"][-max_history_messages:]
             return {
                 "input": value["input"]["input"],
                 "context": value["context"],
-                "history": value["input"]["history"],
+                "history": history_messages,
             }
+
+        def debug_prompt(prompt_value):
+            if not prompt_debug_enabled:
+                return prompt_value
+
+            try:
+                messages = prompt_value.to_messages()
+                rendered_prompt = "\n\n".join(
+                    f"[{getattr(message, 'type', 'unknown')}] {getattr(message, 'content', str(message))}"
+                    for message in messages
+                )
+            except Exception:
+                rendered_prompt = str(prompt_value)
+
+            logger.info(
+                "rag_prompt_rendered (version=%s)\n%s",
+                settings.prompt_version,
+                rendered_prompt,
+            )
+            return prompt_value
 
         chain = (
             {
@@ -56,6 +102,7 @@ class RagService:
             }
             | RunnableLambda(format_for_prompt_template)
             | self.prompt_template
+            | RunnableLambda(debug_prompt)
             | self.chat_model
             | StrOutputParser()
         )

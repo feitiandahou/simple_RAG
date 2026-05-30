@@ -16,6 +16,19 @@ uv sync
 $env:DASHSCOPE_API_KEY = "your-dashscope-key"
 ```
 
+如需查看最终渲染后的 Prompt（默认关闭）：
+
+```powershell
+$env:RAG_DEBUG_PROMPT = "true"
+```
+
+如需启用检索重排序（默认关闭）：
+
+```powershell
+$env:RAG_RERANK_ENABLED = "true"
+$env:RAG_RERANK_CANDIDATE_K = "12"
+```
+
 3. 启动 API：
 
 ```powershell
@@ -36,6 +49,9 @@ curl http://127.0.0.1:8000/health
 DASHSCOPE_API_KEY=your-dashscope-key
 RAG_ENV=prod
 RAG_LOG_LEVEL=INFO
+RAG_DEBUG_PROMPT=false
+RAG_RERANK_ENABLED=false
+RAG_RERANK_CANDIDATE_K=12
 ```
 
 2. 构建并启动：

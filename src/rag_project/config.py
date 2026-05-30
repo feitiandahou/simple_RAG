@@ -14,6 +14,13 @@ def _get_env_int(name: str, default: int) -> int:
         return default
 
 
+def _get_env_bool(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 class Settings:
     def __init__(self) -> None:
         self.project_root = Path(__file__).resolve().parents[2]
@@ -35,6 +42,8 @@ class Settings:
         self.max_split_char_number = _get_env_int("RAG_MAX_SPLIT_CHAR_NUMBER", 1000)
 
         self.top_k = _get_env_int("RAG_TOP_K", 4)
+        self.rerank_enabled = _get_env_bool("RAG_RERANK_ENABLED", False)
+        self.rerank_candidate_k = _get_env_int("RAG_RERANK_CANDIDATE_K", 12)
         self.embedding_model_name = os.environ.get("RAG_EMBEDDING_MODEL", "text-embedding-v4")
         self.chat_model_name = os.environ.get("RAG_CHAT_MODEL", "qwen-turbo")
         self.prompt_version = os.environ.get("RAG_PROMPT_VERSION", "v2_enterprise_demo")
@@ -62,6 +71,8 @@ class Settings:
             "chat_model": self.chat_model_name,
             "prompt_version": self.prompt_version,
             "top_k": self.top_k,
+            "rerank_enabled": int(self.rerank_enabled),
+            "rerank_candidate_k": self.rerank_candidate_k,
             "chunk_size": self.chunk_size,
             "chunk_overlap": self.chunk_overlap,
             "data_dir": str(self.data_dir),

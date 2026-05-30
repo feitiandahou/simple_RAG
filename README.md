@@ -12,7 +12,10 @@
 
 - 文本知识入库（单条上传、目录批量导入）
 - 向量检索（支持结构化 JSON 输出）
+- 两阶段检索（召回 + 可选重排序 rerank）
 - 带历史对话的 RAG 问答
+- 检索上下文去重（减少重复片段）
+- 对话历史窗口控制（仅保留最近 6 轮）
 - 多租户与权限上下文（tenant_id / permission_tag）
 - 会话管理（列出会话、清空会话）
 - 运维命令（健康检查、系统信息、知识库统计、重置与清理）
@@ -164,10 +167,50 @@ uv run python scripts/run_enterprise_demo.py --knowledge-dir docs --tenant-id te
 - RAG_DATA_DIR：运行时数据目录（默认 data）
 - RAG_COLLECTION_NAME：向量集合名（默认 rag）
 - RAG_TOP_K：检索返回条数（默认 4）
+- RAG_RERANK_ENABLED：是否启用重排序（默认 false）
+- RAG_RERANK_CANDIDATE_K：重排序候选召回条数（默认 12）
 - RAG_EMBEDDING_MODEL：嵌入模型名
 - RAG_CHAT_MODEL：对话模型名
 - RAG_PROMPT_VERSION：提示词版本
 - RAG_DEFAULT_SESSION_ID：默认会话 ID
+- RAG_DEBUG_PROMPT：是否打印最终渲染后的 Prompt（默认关闭；开启值支持 1/true/yes/on）
+
+### 查看最终提示词（默认关闭）
+
+如果你想看到“最终喂给 LLM 的 Prompt”，可以打开调试开关：
+
+PowerShell（当前终端生效）：
+
+```powershell
+$env:RAG_DEBUG_PROMPT = "true"
+uv run python -m rag_project ask "什么是RAG？" --session-id user_001
+```
+
+你会在日志中看到 `rag_prompt_rendered`，其中包含渲染后的完整提示词内容。
+
+提示：当前问答链会先对检索到的文档片段做去重，并且只把最近 6 轮历史对话注入提示词，避免上下文重复和历史无限增长。
+
+关闭方式：
+
+```powershell
+Remove-Item Env:RAG_DEBUG_PROMPT
+```
+
+或显式设置为 `false`。
+
+### 启用重排序（默认关闭）
+
+系统默认只做向量召回。若要启用两阶段检索（先召回，再重排序），可设置：
+
+```powershell
+$env:RAG_RERANK_ENABLED = "true"
+$env:RAG_RERANK_CANDIDATE_K = "12"
+```
+
+说明：
+
+- `RAG_TOP_K`：最终返回条数。
+- `RAG_RERANK_CANDIDATE_K`：第一阶段召回候选数，建议大于等于 `RAG_TOP_K`。
 
 ## 项目结构
 
